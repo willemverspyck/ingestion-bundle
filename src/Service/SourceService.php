@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Exception;
 use Psr\Cache\InvalidArgumentException;
 use Spyck\IngestionBundle\Entity\EntityInterface;
+use Spyck\IngestionBundle\Normalizer\AbstractNormalizer as IngestionAbstractNormalizer;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
@@ -150,13 +151,13 @@ class SourceService
                                 if (count($content[$field]) > 0) {
                                     $contentObject = array_shift($content[$field]);
 
-                                    $this->serializer->deserialize(json_encode($contentObject), $mapping['targetEntity'], 'json', ['SOURCE_IMPORT' => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true, AbstractNormalizer::OBJECT_TO_POPULATE => $object]);
+                                    $this->serializer->deserialize(json_encode($contentObject), $mapping['targetEntity'], 'json', [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true, AbstractNormalizer::OBJECT_TO_POPULATE => $object]);
                                 }
                             }
 
                             // Add locations if there are more than 1
                             foreach ($content[$field] as $contentObject) {
-                                $object = $this->serializer->deserialize(json_encode($contentObject), $mapping['targetEntity'], 'json', ['SOURCE_IMPORT' => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true]);
+                                $object = $this->serializer->deserialize(json_encode($contentObject), $mapping['targetEntity'], 'json', [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true]);
 
                                 $fieldSet = sprintf('add%s', ucfirst(substr($field, 0, -1)));
 
@@ -169,7 +170,7 @@ class SourceService
                 }
 
                 $context = [
-                    'SOURCE_IMPORT' => true,
+                    IngestionAbstractNormalizer::KEY => true,
                     AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
                 ];
 

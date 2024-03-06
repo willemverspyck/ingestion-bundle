@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Contracts\Service\Attribute\Required;
 
-final class FileNormalizer extends ObjectNormalizer
+final class FileNormalizer extends AbstractNormalizer
 {
     private FileService $fileService;
 
@@ -26,7 +26,7 @@ final class FileNormalizer extends ObjectNormalizer
 
     public function supportsDenormalization(mixed $data, string $type, ?string $format = null, array $context = []): bool
     {
-        if (false === array_key_exists('SOURCE_IMPORT', $context) || false === $context['SOURCE_IMPORT']) {
+        if (false === array_key_exists(AbstractNormalizer::KEY, $context) || false === $context[AbstractNormalizer::KEY]) {
             return false;
         }
 
