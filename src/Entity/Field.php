@@ -2,11 +2,10 @@
 
 namespace Spyck\IngestionBundle\Entity;
 
-use Spyck\IngestionBundle\Repository\FieldRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as Doctrine;
 
-#[Doctrine\Entity(repositoryClass: FieldRepository::class)]
+#[Doctrine\Entity]
 #[Doctrine\Table(name: 'ingestion_field')]
 class Field
 {
