@@ -3,7 +3,7 @@
 namespace Spyck\IngestionBundle\Listener;
 
 use Spyck\IngestionBundle\Entity\TimestampInterface;
-use DateTimeImmutable;
+use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Event\PreUpdateEventArgs;
@@ -18,9 +18,7 @@ final class TimestampListener
         $object = $prePersistEventArgs->getObject();
 
         if ($object instanceof TimestampInterface) {
-            $date = new DateTimeImmutable();
-
-            $object->setTimestampCreate($date);
+            $object->setTimestampCreate(new DateTime());
         }
     }
 
@@ -29,9 +27,7 @@ final class TimestampListener
         $object = $preUpdateEventArgs->getObject();
 
         if ($object instanceof TimestampInterface) {
-            $date = new DateTimeImmutable();
-
-            $object->setTimestampUpdate($date);
+            $object->setTimestampUpdate(new DateTime());
         }
     }
 }
