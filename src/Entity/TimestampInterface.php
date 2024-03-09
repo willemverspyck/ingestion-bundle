@@ -2,15 +2,15 @@
 
 namespace Spyck\IngestionBundle\Entity;
 
-use DateTimeInterface;
+use DateTimeImmutable;
 
 interface TimestampInterface
 {
-    public function getTimestampCreate(): DateTimeInterface;
+    public function getTimestampCreate(): DateTimeImmutable;
 
-    public function setTimestampCreate(DateTimeInterface $date): void;
+    public function setTimestampCreate(DateTimeImmutable $date): void;
 
-    public function getTimestampUpdate(): ?DateTimeInterface;
+    public function getTimestampUpdate(): ?DateTimeImmutable;
 
-    public function setTimestampUpdate(DateTimeInterface $date): void;
+    public function setTimestampUpdate(DateTimeImmutable $date): void;
 }
