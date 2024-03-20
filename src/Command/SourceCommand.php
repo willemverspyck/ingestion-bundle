@@ -29,7 +29,7 @@ final class SourceCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $id = $input->getOption('id');
+        $id = (int) $input->getOption('id');
 
         if (null === $id) {
             $sources = $this->sourceRepository->getSourceData();

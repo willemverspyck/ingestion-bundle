@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Exception;
 use Psr\Cache\InvalidArgumentException;
 use Spyck\IngestionBundle\Entity\EntityInterface;
+use Spyck\IngestionBundle\Entity\Log;
 use Spyck\IngestionBundle\Entity\Map;
 use Spyck\IngestionBundle\Entity\Source;
 use Spyck\IngestionBundle\Normalizer\AbstractNormalizer as IngestionAbstractNormalizer;
@@ -76,7 +77,6 @@ class SourceService
                 }
 
                 $content = [];
-                $files = [];
 
                 $maps = $source->getMaps();
 
@@ -99,32 +99,29 @@ class SourceService
                 $log = $this->logRepository->getLogBySourceAndCode($source, $key);
 
                 if (null === $log) {
-                    $entity = null;
-
                     $log = $this->logRepository->putLog(source: $source, code: $key, data: $content);
+
+                    $entity = null;
                 } else {
                     $this->logRepository->patchLog(log: $log, fields: ['data', 'messages'], data: $content);
 
-                    /** RepositoryInterface $repository */
-                    $repository = $this->entityManager->getRepository($adapter);
+                    $entity = $this->getEntity($log, $adapter);
+                }
 
-                    $entity = $repository->createQueryBuilder('entity')
-                        ->where('entity.log = :log')
-                        ->setParameter('log', $log)
-                        ->getQuery()
-                        ->getOneOrNullResult();
+                $context = [
+                    IngestionAbstractNormalizer::KEY => true,
+                    AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
+                ];
 
+                if (null !== $entity) {
                     foreach ($maps as $map) {
                         $field = $map->getField();
 
                         if (false === $map->isValueUpdate()) {
                             $content = $this->removeContent($content, explode('.', $field->getCode()));
-                            $files = $this->removeContent($files, explode('.', $field->getCode()));
                         }
                     }
-                }
 
-                if (null !== $entity) {
                     // This next "foreach" is for not supporting arrays of objects. From Symfony: When the AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE option is set to true, existing children of the root OBJECT_TO_POPULATE are updated from the normalized data, instead of the denormalizer re-creating them. Note that DEEP_OBJECT_TO_POPULATE only works for single child objects, but not for arrays of objects. Those will still be replaced when present in the normalized data.
                     foreach ($this->entityManager->getClassMetadata(get_class($entity))->getAssociationMappings() as $mapping) {
                         $field = $mapping['fieldName'];
@@ -156,14 +153,7 @@ class SourceService
                             unset($content[$field]);
                         }
                     }
-                }
-
-                $context = [
-                    IngestionAbstractNormalizer::KEY => true,
-                    AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
-                ];
-
-                if (null !== $entity) {
+                    
                     $context[AbstractNormalizer::OBJECT_TO_POPULATE] = $entity;
                 }
 
@@ -195,6 +185,18 @@ class SourceService
                 throw new Exception(sprintf('"Primary key" not found (%s)', $source->getName()));
             }
         }
+    }
+
+    private function getEntity(Log $log, string $adapter): ?object
+    {
+        /** RepositoryInterface $repository */
+        $repository = $this->entityManager->getRepository($adapter);
+
+        return $repository->createQueryBuilder('entity')
+            ->where('entity.log = :log')
+            ->setParameter('log', $log)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     private function getTemplate(string $template, array $data): string
