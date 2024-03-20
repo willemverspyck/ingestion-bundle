@@ -29,7 +29,7 @@ final class SourceCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $id = (int) $input->getOption('id');
+        $id = $input->getOption('id');
 
         if (null === $id) {
             $sources = $this->sourceRepository->getSourceData();
@@ -41,7 +41,7 @@ final class SourceCommand extends Command
             return Command::SUCCESS;
         }
 
-        $source = $this->sourceRepository->getSourceById($id);
+        $source = $this->sourceRepository->getSourceById((int) $id);
 
         if (null === $source) {
             $output->writeln(sprintf('Source "%d" not found', $id));
