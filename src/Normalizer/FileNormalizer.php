@@ -6,7 +6,6 @@ namespace Spyck\IngestionBundle\Normalizer;
 
 use Spyck\IngestionBundle\Service\FileService;
 use Symfony\Component\HttpFoundation\File\File;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Contracts\Service\Attribute\Required;
 
 final class FileNormalizer extends AbstractNormalizer

@@ -1,16 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Spyck\IngestionBundle\Service;
 
-use Spyck\IngestionBundle\Entity\Map;
-use Spyck\IngestionBundle\Entity\Source;
-use Spyck\IngestionBundle\Repository\LogRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Exception;
 use Psr\Cache\InvalidArgumentException;
 use Spyck\IngestionBundle\Entity\EntityInterface;
+use Spyck\IngestionBundle\Entity\Map;
+use Spyck\IngestionBundle\Entity\Source;
 use Spyck\IngestionBundle\Normalizer\AbstractNormalizer as IngestionAbstractNormalizer;
+use Spyck\IngestionBundle\Repository\LogRepository;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
@@ -22,6 +24,7 @@ use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Twig\Environment;
 use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
 
 class SourceService
 {
@@ -35,7 +38,7 @@ class SourceService
      * @throws TransportExceptionInterface
      * @throws LoaderError
      */
-    public function handleSource(Source $source, bool $debug): ?array
+    public function handleSource(Source $source): void
     {
         $adapter = $source->getModule()->getAdapter();
 
@@ -50,9 +53,7 @@ class SourceService
         $data = $this->getData($source->getUrl(), $source->getType());
 
         if (null === $data) {
-            return [
-                'Data not found',
-            ];
+            throw new Exception(sprintf('Data not found for "%s"', $source->getName()));
         }
 
         $this->logRepository->patchLogProcessedBySource($source, false);
@@ -64,17 +65,11 @@ class SourceService
         }
 
         foreach ($data as $row) {
-            if ($debug) {
-                dump($row);
-            }
-
             $key = $this->getKey($source, $row);
 
             if (null !== $key) {
                 if (null !== $source->getCodeUrl()) {
-                    $template = $this->environment->createTemplate($source->getCodeUrl());
-
-                    $codeUrl = $template->render($row);
+                    $codeUrl = $this->getTemplate($source->getCodeUrl(), $row);
                     $codeRow = $this->getData($codeUrl, $source->getType());
 
                     $row = array_merge($row, $codeRow);
@@ -97,14 +92,8 @@ class SourceService
                     $field = $map->getField();
 
                     if (null !== $map->getTemplate()) {
-                        $template = $this->environment->createTemplate($map->getTemplate());
-
-                        $content = $this->setContent($content, explode('.', $field->getCode()), $template->render($row));
+                        $content = $this->setContent($content, explode('.', $field->getCode()), $this->getTemplate($map->getTemplate(), $row));
                     }
-                }
-
-                if ($debug) {
-                    dump($content);
                 }
 
                 $log = $this->logRepository->getLogBySourceAndCode($source, $key);
@@ -195,27 +184,26 @@ class SourceService
 
                     $this->logRepository->patchLog(log: $log, fields: ['messages'], messages: $messages);
                 } else {
-                    if ($debug) {
-                        dump($entity);
-                    } else {
-                        $entity->setLog($log);
+                    $entity->setLog($log);
 
-                        $this->entityManager->persist($entity);
-                        $this->entityManager->flush();
+                    $this->entityManager->persist($entity);
+                    $this->entityManager->flush();
 
-                        $this->logRepository->patchLog($log, ['processed'], processed: true);
-                    }
+                    $this->logRepository->patchLog($log, ['processed'], processed: true);
                 }
             } else {
-                dump(sprintf('"Primary key" not found (%s)', $source->getCode()));
-
-                if ($debug) {
-                    dump($row);
-                }
+                throw new Exception(sprintf('"Primary key" not found (%s)', $source->getName()));
             }
         }
+    }
 
-        return [];
+    private function getTemplate(string $template, array $data): string
+    {
+        try {
+            return $this->environment->createTemplate($template, 'template')->render($data);
+        } catch (RuntimeError $runtimeError) {
+            throw new Exception($runtimeError->getMessage());
+        }
     }
 
     private function setContent(array $data, array $fields, mixed $value): array

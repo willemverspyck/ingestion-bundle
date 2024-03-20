@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Spyck\IngestionBundle\Entity;
 
-use Spyck\IngestionBundle\Repository\SourceRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as Doctrine;
+use Spyck\IngestionBundle\Repository\SourceRepository;
 
 #[Doctrine\Entity(repositoryClass: SourceRepository::class)]
 #[Doctrine\Table(name: 'ingestion_source')]
@@ -62,7 +64,7 @@ class Source
     {
         return $this->id;
     }
-    
+
     public function getModule(): Module
     {
         return $this->module;

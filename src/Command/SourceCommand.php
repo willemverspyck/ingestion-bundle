@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Spyck\IngestionBundle\Command;
 
 use Spyck\IngestionBundle\Entity\Source;
@@ -22,20 +24,18 @@ final class SourceCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('id', null, InputOption::VALUE_OPTIONAL, 'Identifier of the source')
-            ->addOption('debug', null, InputOption::VALUE_NONE, 'Debug mode');
+            ->addOption('id', null, InputOption::VALUE_OPTIONAL, 'Identifier of the source');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $id = $input->getOption('id');
-        $debug = $input->getOption('debug');
 
         if (null === $id) {
             $sources = $this->sourceRepository->getSourceData();
 
             foreach ($sources as $source) {
-                $this->executeSource($source, $debug, $output);
+                $this->executeSource($source, $output);
             }
 
             return Command::SUCCESS;
@@ -49,23 +49,15 @@ final class SourceCommand extends Command
             return Command::FAILURE;
         }
 
-        $this->executeSource($source, $debug, $output);
+        $this->executeSource($source, $output);
 
         return Command::SUCCESS;
     }
 
-    private function executeSource(Source $source, bool $debug, OutputInterface $output): void
+    private function executeSource(Source $source, OutputInterface $output): void
     {
         $output->writeln(sprintf('Source "%s"', $source->getName()));
 
-        $errors = $this->sourceService->handleSource($source, $debug);
-
-        if (null === $errors) {
-            return;
-        }
-
-        foreach ($errors as $error) {
-            $output->writeln($error);
-        }
+        $this->sourceService->handleSource($source);
     }
 }

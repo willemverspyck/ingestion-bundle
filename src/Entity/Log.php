@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Spyck\IngestionBundle\Entity;
 
-use Spyck\IngestionBundle\Repository\LogRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as Doctrine;
+use Spyck\IngestionBundle\Repository\LogRepository;
 
 #[Doctrine\Entity(repositoryClass: LogRepository::class)]
 #[Doctrine\Table(name: 'ingestion_log')]
@@ -84,7 +86,7 @@ class Log extends AbstractTimestamp
 
         return $this;
     }
-   
+
     public function isProcessed(): bool
     {
         return $this->processed;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Spyck\IngestionBundle\Entity;
 
 use Doctrine\DBAL\Types\Types;

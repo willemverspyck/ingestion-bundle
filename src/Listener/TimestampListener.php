@@ -1,13 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Spyck\IngestionBundle\Listener;
 
-use Spyck\IngestionBundle\Entity\TimestampInterface;
 use DateTimeImmutable;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Event\PreUpdateEventArgs;
 use Doctrine\ORM\Events;
+use Spyck\IngestionBundle\Entity\TimestampInterface;
 
 #[AsDoctrineListener(event: Events::prePersist)]
 #[AsDoctrineListener(event: Events::preUpdate)]

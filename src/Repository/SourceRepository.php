@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Spyck\IngestionBundle\Repository;
 
-use Spyck\IngestionBundle\Entity\Source;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
+use Spyck\IngestionBundle\Entity\Source;
 
 class SourceRepository extends ServiceEntityRepository
 {

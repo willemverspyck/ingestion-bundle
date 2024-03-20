@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Spyck\IngestionBundle\Repository;
 
-use Spyck\IngestionBundle\Entity\Log;
-use Spyck\IngestionBundle\Entity\Source;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Spyck\IngestionBundle\Entity\Log;
+use Spyck\IngestionBundle\Entity\Source;
+use Spyck\IngestionBundle\Utility\DataUtility;
 
 class LogRepository extends ServiceEntityRepository
 {
@@ -47,13 +50,11 @@ class LogRepository extends ServiceEntityRepository
         }
 
         if (in_array('messages', $fields)) {
-            assert(null !== $messages);
-
             $log->setMessages($messages);
         }
 
         if (in_array('processed', $fields)) {
-            assert(null !== $processed);
+            DataUtility::assert(null !== $processed);
 
             $log->setProcessed($processed);
         }
