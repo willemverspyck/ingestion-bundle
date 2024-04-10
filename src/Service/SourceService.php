@@ -108,12 +108,9 @@ class SourceService
                     $entity = $this->getEntity($log, $adapter);
                 }
 
-                $context = [
-                    IngestionAbstractNormalizer::KEY => true,
-                    AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
-                ];
-
-                if (null !== $entity) {
+                if (null === $entity) {
+                    $entity = $adapter::getIngestionEntity();
+                } else {
                     foreach ($maps as $map) {
                         $field = $map->getField();
 
@@ -141,7 +138,7 @@ class SourceService
                                 }
                             }
 
-                            // Add locations if there are more than 1
+                            // Add collections if there are more than the original object
                             foreach ($content[$field] as $contentObject) {
                                 $object = $this->serializer->deserialize(json_encode($contentObject), $mapping['targetEntity'], 'json', [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true]);
 
@@ -153,9 +150,13 @@ class SourceService
                             unset($content[$field]);
                         }
                     }
-                    
-                    $context[AbstractNormalizer::OBJECT_TO_POPULATE] = $entity;
                 }
+
+                $context = [
+                    AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
+                    AbstractNormalizer::OBJECT_TO_POPULATE => $entity,
+                    IngestionAbstractNormalizer::KEY => true,
+                ];
 
                 $entity = $this->serializer->deserialize(json_encode($content), $adapter, 'json', $context);
 
@@ -174,7 +175,7 @@ class SourceService
 
                     $this->logRepository->patchLog(log: $log, fields: ['messages'], messages: $messages);
                 } else {
-                    $entity->setLog($log);
+                    $entity->setIngestionLog($log);
 
                     $this->entityManager->persist($entity);
                     $this->entityManager->flush();

@@ -6,7 +6,9 @@ namespace Spyck\IngestionBundle\Entity;
 
 interface EntityInterface
 {
-    public function getLog(): ?Log;
+    public static function getIngestionEntity(): self;
+    
+    public function getIngestionLog(): ?Log;
 
-    public function setLog(?Log $log): self;
+    public function setIngestionLog(?Log $log): self;
 }
