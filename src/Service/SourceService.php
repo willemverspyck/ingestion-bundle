@@ -15,8 +15,11 @@ use Spyck\IngestionBundle\Entity\Source;
 use Spyck\IngestionBundle\Normalizer\AbstractNormalizer as IngestionAbstractNormalizer;
 use Spyck\IngestionBundle\Repository\LogRepository;
 use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
+use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -29,7 +32,7 @@ use Twig\Error\RuntimeError;
 
 class SourceService
 {
-    public function __construct(private readonly CacheInterface $cache, private readonly EntityManagerInterface $entityManager, private readonly Environment $environment, private readonly HttpClientInterface $httpClient, private readonly LogRepository $logRepository, private readonly SerializerInterface $serializer, private readonly ValidatorInterface $validator)
+    public function __construct(private readonly CacheInterface $cache, private readonly EntityManagerInterface $entityManager, private readonly Environment $environment, private readonly HttpClientInterface $httpClient, private readonly LogRepository $logRepository, private readonly ValidatorInterface $validator)
     {
     }
 
@@ -96,95 +99,116 @@ class SourceService
                     }
                 }
 
-                $log = $this->logRepository->getLogBySourceAndCode($source, $key);
-
-                if (null === $log) {
-                    $log = $this->logRepository->putLog(source: $source, code: $key, data: $content);
-
-                    $entity = null;
-                } else {
-                    $this->logRepository->patchLog(log: $log, fields: ['data', 'messages'], data: $content);
-
-                    $entity = $this->getEntity($log, $adapter);
-                }
-
-                if (null === $entity) {
-                    $entity = $adapter::getIngestionEntity();
-                } else {
-                    foreach ($maps as $map) {
-                        $field = $map->getField();
-
-                        if (false === $map->isValueUpdate()) {
-                            $content = $this->removeContent($content, explode('.', $field->getCode()));
-                        }
-                    }
-
-                    // This next "foreach" is for not supporting arrays of objects. From Symfony: When the AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE option is set to true, existing children of the root OBJECT_TO_POPULATE are updated from the normalized data, instead of the denormalizer re-creating them. Note that DEEP_OBJECT_TO_POPULATE only works for single child objects, but not for arrays of objects. Those will still be replaced when present in the normalized data.
-                    foreach ($this->entityManager->getClassMetadata(get_class($entity))->getAssociationMappings() as $mapping) {
-                        $field = $mapping['fieldName'];
-
-                        if (ClassMetadataInfo::ONE_TO_MANY === $mapping['type'] && array_key_exists($field, $content)) {
-                            $propertyAccessor = PropertyAccess::createPropertyAccessorBuilder()
-                                ->enableExceptionOnInvalidIndex()
-                                ->getPropertyAccessor();
-
-                            $objects = $propertyAccessor->getValue($entity, $field);
-
-                            foreach ($objects as $object) {
-                                if (count($content[$field]) > 0) {
-                                    $contentObject = array_shift($content[$field]);
-
-                                    $this->serializer->deserialize(json_encode($contentObject), $mapping['targetEntity'], 'json', [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true, AbstractNormalizer::OBJECT_TO_POPULATE => $object]);
-                                }
-                            }
-
-                            // Add collections if there are more than the original object
-                            foreach ($content[$field] as $contentObject) {
-                                $object = $this->serializer->deserialize(json_encode($contentObject), $mapping['targetEntity'], 'json', [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true]);
-
-                                $fieldSet = sprintf('add%s', ucfirst(substr($field, 0, -1)));
-
-                                $entity->$fieldSet($object);
-                            }
-
-                            unset($content[$field]);
-                        }
-                    }
-                }
-
-                $context = [
-                    AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
-                    AbstractNormalizer::OBJECT_TO_POPULATE => $entity,
-                    IngestionAbstractNormalizer::KEY => true,
-                ];
-
-                $entity = $this->serializer->deserialize(json_encode($content), $adapter, 'json', $context);
-
-                $violations = $this->validator->validate($entity, null, ['Default']);
-
-                if ($violations->count() > 0) {
-                    $messages = [];
-
-                    foreach ($violations->getIterator() as $violation) {
-                        $field = $violation->getPropertyPath();
-
-                        if (null !== $field) {
-                            $messages[$field] = $violation->getMessage();
-                        }
-                    }
-
-                    $this->logRepository->patchLog(log: $log, fields: ['messages'], messages: $messages);
-                } else {
-                    $entity->setIngestionLog($log);
-
-                    $this->entityManager->persist($entity);
-                    $this->entityManager->flush();
-
-                    $this->logRepository->patchLog($log, ['processed'], processed: true);
-                }
+                $this->putData($source, $key, $adapter, $data);
             } else {
                 throw new Exception(sprintf('"Primary key" not found (%s)', $source->getName()));
             }
+        }
+    }
+
+    private function putData(Source $source, string $key, array $content): void
+    {
+        $adapter = $source->getModule()->getAdapter();
+
+        $log = $this->logRepository->getLogBySourceAndCode($source, $key);
+
+        if (null === $log) {
+            $log = $this->logRepository->putLog(source: $source, code: $key, data: $content);
+
+            $entity = null;
+        } else {
+            $this->logRepository->patchLog(log: $log, fields: ['data', 'messages'], data: $content);
+
+            $entity = $this->getEntity($log, $adapter);
+        }
+
+        $normalizer = new ObjectNormalizer();
+
+        $serializer = new Serializer([$normalizer]);
+
+        if (null === $entity) {
+            $entity = $adapter::getIngestionEntity();
+        } else {
+            foreach ($source->getMaps() as $map) {
+                $field = $map->getField();
+
+                if (false === $map->isValueUpdate()) {
+                    $content = $this->removeContent($content, explode('.', $field->getCode()));
+                }
+            }
+
+            // This next "foreach" is for not supporting arrays of objects. From Symfony: When the AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE option is set to true, existing children of the root OBJECT_TO_POPULATE are updated from the normalized data, instead of the denormalizer re-creating them. Note that DEEP_OBJECT_TO_POPULATE only works for single child objects, but not for arrays of objects. Those will still be replaced when present in the normalized data.
+            foreach ($this->entityManager->getClassMetadata(get_class($entity))->getAssociationMappings() as $mapping) {
+                $field = $mapping['fieldName'];
+
+                if (ClassMetadataInfo::ONE_TO_MANY === $mapping['type'] && array_key_exists($field, $content)) {
+                    $propertyAccessor = PropertyAccess::createPropertyAccessorBuilder()
+                        ->enableExceptionOnInvalidIndex()
+                        ->getPropertyAccessor();
+
+                    $objects = $propertyAccessor->getValue($entity, $field);
+
+                    foreach ($objects as $object) {
+                        if (count($content[$field]) > 0) {
+                            $contentObject = array_shift($content[$field]);
+
+                            $serializer->denormalize($contentObject, $mapping['targetEntity'], null, [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true, AbstractNormalizer::OBJECT_TO_POPULATE => $object]);
+                        }
+                    }
+
+                    // Add collections if there are more than the original object
+                    foreach ($content[$field] as $contentObject) {
+                        $object = $serializer->denormalize($contentObject, $mapping['targetEntity'], null, [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true]);
+
+                        $fieldSet = sprintf('add%s', ucfirst(substr($field, 0, -1)));
+
+                        $entity->$fieldSet($object);
+                    }
+
+                    unset($content[$field]);
+                }
+            }
+        }
+
+        try {
+            $context = [
+                AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
+                AbstractNormalizer::OBJECT_TO_POPULATE => $entity,
+                IngestionAbstractNormalizer::KEY => true,
+            ];
+
+            $entity = $serializer->denormalize($content, $adapter, null, $context);
+        } catch (NotNormalizableValueException $exception) {
+            $messages = [
+                $exception->getMessage(),
+            ];
+
+            $this->logRepository->patchLog(log: $log, fields: ['messages'], messages: $messages);
+
+            return;
+        }
+
+        $violations = $this->validator->validate($entity, null, ['Default']);
+
+        if ($violations->count() > 0) {
+            $messages = [];
+
+            foreach ($violations->getIterator() as $violation) {
+                $field = $violation->getPropertyPath();
+
+                if (null !== $field) {
+                    $messages[$field] = $violation->getMessage();
+                }
+            }
+
+            $this->logRepository->patchLog(log: $log, fields: ['messages'], messages: $messages);
+        } else {
+            $entity->setIngestionLog($log);
+
+            $this->entityManager->persist($entity);
+            $this->entityManager->flush();
+
+            $this->logRepository->patchLog($log, ['processed'], processed: true);
         }
     }
 
@@ -278,13 +302,7 @@ class SourceService
                     throw new Exception('XML not welformed');
                 }
 
-                $data = json_encode($data);
-
-                if (false === $data) {
-                    throw new Exception('XML not welformed');
-                }
-
-                return json_decode($data, true);
+                return $data;
             }
 
             throw new Exception('Type not found');
