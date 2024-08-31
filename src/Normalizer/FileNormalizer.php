@@ -6,21 +6,12 @@ namespace Spyck\IngestionBundle\Normalizer;
 
 use Spyck\IngestionBundle\Service\FileService;
 use Symfony\Component\HttpFoundation\File\File;
-use Symfony\Contracts\Service\Attribute\Required;
+use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 
-final class FileNormalizer extends AbstractNormalizer
+final class FileNormalizer implements DenormalizerInterface
 {
-    private FileService $fileService;
-
-    #[Required]
-    public function setFileService(FileService $fileService): void
+    public function __construct(private FileService $fileService)
     {
-        $this->fileService = $fileService;
-    }
-
-    public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
-    {
-        return false;
     }
 
     public function supportsDenormalization(mixed $data, string $type, ?string $format = null, array $context = []): bool
@@ -63,6 +54,8 @@ final class FileNormalizer extends AbstractNormalizer
 
     public function getSupportedTypes(?string $format): array
     {
-        return ['object' => __CLASS__ === static::class];
+        return [
+            'object' => __CLASS__ === static::class,
+        ];
     }
 }
