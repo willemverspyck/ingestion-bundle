@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Spyck\IngestionBundle\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Mapping\ClassMetadataInfo;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Exception;
 use Psr\Cache\InvalidArgumentException;
 use Spyck\IngestionBundle\Entity\EntityInterface;
@@ -141,7 +141,7 @@ class SourceService
             foreach ($this->entityManager->getClassMetadata(get_class($entity))->getAssociationMappings() as $mapping) {
                 $field = $mapping['fieldName'];
 
-                if (ClassMetadataInfo::ONE_TO_MANY === $mapping['type'] && array_key_exists($field, $content)) {
+                if (ClassMetadata::ONE_TO_MANY === $mapping['type'] && array_key_exists($field, $content)) {
                     $propertyAccessor = PropertyAccess::createPropertyAccessorBuilder()
                         ->enableExceptionOnInvalidIndex()
                         ->getPropertyAccessor();
