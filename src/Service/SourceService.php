@@ -14,6 +14,7 @@ use Spyck\IngestionBundle\Entity\Map;
 use Spyck\IngestionBundle\Entity\Source;
 use Spyck\IngestionBundle\Normalizer\AbstractNormalizer as IngestionAbstractNormalizer;
 use Spyck\IngestionBundle\Repository\LogRepository;
+use Spyck\IngestionBundle\Utility\DataUtility;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
@@ -302,7 +303,7 @@ class SourceService
                     throw new Exception('XML not welformed');
                 }
 
-                return $data;
+                return DataUtility::simpleXmlToArray($data);
             }
 
             throw new Exception('Type not found');
