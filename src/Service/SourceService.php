@@ -100,7 +100,7 @@ class SourceService
                     }
                 }
 
-                $this->putData($source, $key, $data);
+                $this->putData($source, $key, $row);
             } else {
                 throw new Exception(sprintf('"Primary key" not found (%s)', $source->getName()));
             }

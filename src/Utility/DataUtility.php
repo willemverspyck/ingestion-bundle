@@ -43,15 +43,21 @@ final class DataUtility
             $data['@attributes'] = $attributes;
         }
 
+        $match = [];
+
+        foreach ($simpleXMLElement->children() as $child) {
+            $key = $child->getName();
+
+            $match[$key] = array_key_exists($key, $match) ? $match[$key] + 1 : 1;
+        }
+
         foreach ($simpleXMLElement->children() as $child) {
             $key = $child->getName();
             $node = $child->count() > 0 ? self::simpleXmlToArray($child) : $child->__toString();
 
-            if (array_key_exists($key, $data)) {
-                if (false === array_key_exists(0, $data[$key])) {
-                    $data[$key] = [
-                        $data[$key],
-                    ];
+            if ($match[$key] > 1) {
+                if (false === array_key_exists($key, $data)) {
+                    $data[$key] = [];
                 }
 
                 $data[$key][] = $node;
