@@ -27,13 +27,14 @@ use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 
 class SourceService
 {
-    public function __construct(private readonly CacheInterface $cache, private readonly EntityManagerInterface $entityManager, private readonly Environment $environment, private readonly HttpClientInterface $httpClient, private readonly LogRepository $logRepository, private readonly ValidatorInterface $validator)
+    public function __construct(private readonly CacheInterface $cache, private readonly DenormalizerInterface $denormalizer, private readonly EntityManagerInterface $entityManager, private readonly Environment $environment, private readonly HttpClientInterface $httpClient, private readonly LogRepository $logRepository, private readonly ValidatorInterface $validator)
     {
     }
 
@@ -80,26 +81,6 @@ class SourceService
                     $row = array_merge($row, $codeRow);
                 }
 
-                $content = [];
-
-                $maps = $source->getMaps();
-
-                foreach ($maps as $map) {
-                    $value = $this->getContent($map, $row);
-
-                    $code = $map->getField()->getCode();
-
-                    $content = $this->setContent($content, explode('.', $code), $value);
-                }
-
-                foreach ($maps as $map) {
-                    $field = $map->getField();
-
-                    if (null !== $map->getTemplate()) {
-                        $content = $this->setContent($content, explode('.', $field->getCode()), $this->getTemplate($map->getTemplate(), $row));
-                    }
-                }
-
                 $this->putData($source, $key, $row);
             } else {
                 throw new Exception(sprintf('"Primary key" not found (%s)', $source->getName()));
@@ -107,25 +88,42 @@ class SourceService
         }
     }
 
-    private function putData(Source $source, string $key, array $content): void
+    private function putData(Source $source, string $key, array $data): void
     {
+        $content = [];
+
+        $maps = $source->getMaps();
+
+        foreach ($maps as $map) {
+            $value = $this->getContent($map, $data);
+
+            $code = $map->getField()->getCode();
+
+            $content = $this->setContent($content, explode('.', $code), $value);
+        }
+
+        foreach ($maps as $map) {
+            $field = $map->getField();
+
+            if (null !== $map->getTemplate()) {
+                $content = $this->setContent($content, explode('.', $field->getCode()), $this->getTemplate($map->getTemplate(), $data));
+            }
+        }
+
         $adapter = $source->getModule()->getAdapter();
 
         $log = $this->logRepository->getLogBySourceAndCode($source, $key);
 
         if (null === $log) {
-            $log = $this->logRepository->putLog(source: $source, code: $key, data: $content);
+            $log = $this->logRepository->putLog(source: $source, code: $key, data: $data);
 
             $entity = null;
         } else {
-            $this->logRepository->patchLog(log: $log, fields: ['data', 'messages'], data: $content);
+            $this->logRepository->patchLog(log: $log, fields: ['data', 'messages'], data: $data);
 
             $entity = $this->getEntity($log, $adapter);
         }
 
-        $normalizer = new ObjectNormalizer();
-
-        $serializer = new Serializer([$normalizer]);
 
         if (null === $entity) {
             $entity = $adapter::getIngestionEntity();
@@ -153,13 +151,13 @@ class SourceService
                         if (count($content[$field]) > 0) {
                             $contentObject = array_shift($content[$field]);
 
-                            $serializer->denormalize($contentObject, $mapping['targetEntity'], null, [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true, AbstractNormalizer::OBJECT_TO_POPULATE => $object]);
+                            $this->denormalizer->denormalize($contentObject, $mapping['targetEntity'], null, [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true, AbstractNormalizer::OBJECT_TO_POPULATE => $object]);
                         }
                     }
 
                     // Add collections if there are more than the original object
                     foreach ($content[$field] as $contentObject) {
-                        $object = $serializer->denormalize($contentObject, $mapping['targetEntity'], null, [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true]);
+                        $object = $this->denormalizer->denormalize($contentObject, $mapping['targetEntity'], null, [IngestionAbstractNormalizer::KEY => true, AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true]);
 
                         $fieldSet = sprintf('add%s', ucfirst(substr($field, 0, -1)));
 
@@ -178,7 +176,7 @@ class SourceService
                 IngestionAbstractNormalizer::KEY => true,
             ];
 
-            $entity = $serializer->denormalize($content, $adapter, null, $context);
+            $entity = $this->denormalizer->denormalize($content, $adapter, null, $context);
         } catch (NotNormalizableValueException $exception) {
             $messages = [
                 $exception->getMessage(),
