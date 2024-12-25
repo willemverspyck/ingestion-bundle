@@ -32,7 +32,7 @@ final class SourceCommand extends Command
         $id = $input->getOption('id');
 
         if (null === $id) {
-            $sources = $this->sourceRepository->getSourceData();
+            $sources = $this->sourceRepository->getSources();
 
             foreach ($sources as $source) {
                 $this->executeSource($source, $output);
@@ -58,6 +58,6 @@ final class SourceCommand extends Command
     {
         $output->writeln(sprintf('Source "%s"', $source->getName()));
 
-        $this->sourceService->handleSource($source);
+        $this->sourceService->executeSourceAsMessage($source);
     }
 }

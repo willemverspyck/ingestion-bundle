@@ -30,7 +30,7 @@ class SourceRepository extends ServiceEntityRepository
     /**
      * @return array<int, Source>
      */
-    public function getSourceData(): array
+    public function getSources(): array
     {
         return $this->createQueryBuilder('source')
             ->innerJoin('source.module', 'module', Join::WITH, 'module.active = TRUE')
