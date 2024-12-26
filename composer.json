@@ -17,7 +17,7 @@
     "homepage": "https://github.com/willemverspyck/ingestion-bundle",
     "type": "library",
     "require": {
-        "php": "^8.1",
+        "php": "^8.2",
         "doctrine/collections": "^2",
         "doctrine/dbal": "^3|^4",
         "doctrine/doctrine-bundle": "^2",
@@ -26,13 +26,17 @@
         "psr/cache": "^3",
         "symfony/cache": "^6|^7",
         "symfony/config": "^6|^7",
+        "symfony/console": "^6|^7",
         "symfony/dependency-injection": "^6|^7",
         "symfony/framework-bundle": "^6|^7",
+        "symfony/messenger": "^6|^7",
         "symfony/property-access": "^6|^7",
         "symfony/serializer": "^6|^7",
         "symfony/validator": "^6|^7",
         "symfony/http-client": "^6|^7",
+        "symfony/http-foundation": "^6|^7",
         "symfony/http-kernel": "^6|^7",
+        "symfony/validator": "^6|^7",
         "twig/twig": "^3"
     },
     "require-dev": {

@@ -11,8 +11,10 @@ use Spyck\IngestionBundle\Repository\LogRepository;
 #[Doctrine\Entity(repositoryClass: LogRepository::class)]
 #[Doctrine\Table(name: 'ingestion_log')]
 #[Doctrine\UniqueConstraint(columns: ['source_id', 'code'])]
-class Log extends AbstractTimestamp
+class Log implements TimestampInterface
 {
+    use TimestampTrait;
+
     #[Doctrine\Column(name: 'id', type: Types::INTEGER, options: ['unsigned' => true])]
     #[Doctrine\GeneratedValue(strategy: 'IDENTITY')]
     #[Doctrine\Id]

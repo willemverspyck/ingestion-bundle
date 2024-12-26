@@ -12,8 +12,10 @@ use Spyck\IngestionBundle\Repository\SourceRepository;
 
 #[Doctrine\Entity(repositoryClass: SourceRepository::class)]
 #[Doctrine\Table(name: 'ingestion_source')]
-class Source
+class Source implements TimestampInterface
 {
+    use TimestampTrait;
+
     public const TYPE_JSON = 'json';
     public const TYPE_JSON_NAME = 'JSON';
     public const TYPE_XML = 'xml';

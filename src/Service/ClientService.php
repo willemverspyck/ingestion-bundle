@@ -31,21 +31,22 @@ class ClientService
 
             $response = $this->httpClient->request(Request::METHOD_GET, $url);
 
-            if (Source::TYPE_JSON === $type) {
-                return $response->toArray(false);
-            }
-
-            if (Source::TYPE_XML === $type) {
-                $data = simplexml_load_string($response->getContent(false));
-
-                if (false === $data) {
-                    throw new Exception('XML not welformed');
-                }
-
-                return DataUtility::simpleXmlToArray($data);
-            }
-
-            throw new Exception('Type not found');
+            return match (true) {
+                Source::TYPE_JSON === $type => $response->toArray(false),
+                Source::TYPE_XML === $type => $this->getXml($response->getContent(false)),
+                default => throw new Exception('Type not found'),
+            };
         });
+    }
+
+    private function getXml(string $content): array
+    {
+        $data = simplexml_load_string($content);
+
+        if (false === $data) {
+            throw new Exception('XML not welformed');
+        }
+
+        return DataUtility::simpleXmlToArray($data);
     }
 }

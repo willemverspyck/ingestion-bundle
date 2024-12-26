@@ -9,8 +9,10 @@ use Doctrine\ORM\Mapping as Doctrine;
 
 #[Doctrine\Entity]
 #[Doctrine\Table(name: 'ingestion_field')]
-class Field
+class Field implements TimestampInterface
 {
+    use TimestampTrait;
+    
     #[Doctrine\Column(name: 'id', type: Types::SMALLINT, options: ['unsigned' => true])]
     #[Doctrine\GeneratedValue(strategy: 'IDENTITY')]
     #[Doctrine\Id]

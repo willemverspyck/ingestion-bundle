@@ -2,7 +2,7 @@
 
 namespace Spyck\IngestionBundle\Message;
 
-class ContentMessage implements ContentMessageInterface
+final class ContentMessage implements ContentMessageInterface
 {
     private int $id;
     private array $data;

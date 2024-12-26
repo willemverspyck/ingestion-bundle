@@ -33,18 +33,18 @@ class ContentService
     {
         $key = $this->getKey($source, $data);
 
-        if (null !== $key) {
-            if (null !== $source->getCodeUrl()) {
-                $codeUrl = $this->getTemplate($source->getCodeUrl(), $data);
-                $codeRow = $this->clientService->getData($codeUrl, $source->getType());
-
-                $data = array_merge($data, $codeRow);
-            }
-
-            $this->putData($source, $key, $data);
-        } else {
+        if (null === $key) {
             throw new Exception(sprintf('"Primary key" not found (%s)', $source->getName()));
         }
+
+        if (null !== $source->getCodeUrl()) {
+            $codeUrl = $this->getTemplate($source->getCodeUrl(), $data);
+            $codeRow = $this->clientService->getData($codeUrl, $source->getType());
+
+            $data = array_merge($data, $codeRow);
+        }
+
+        $this->putContent($source, $key, $data);
     }
 
     public function executeContentAsMessage(Source $source, array $data): void
@@ -56,7 +56,123 @@ class ContentService
         $this->messageBus->dispatch($contentMessage);
     }
 
-    private function putData(Source $source, string $key, array $data): void
+    /**
+     * @return array|int|float|string
+     */
+    private function getContent(Map $map, array $data)
+    {
+        if (null === $map->getPath()) {
+            return $this->getValue($map, $data);
+        }
+
+        $propertyAccessor = PropertyAccess::createPropertyAccessor();
+        $values = $propertyAccessor->getValue($data, $map->getPath());
+
+        $content = [];
+
+        if (is_array($values)) {
+            foreach ($values as $value) {
+                $content[] = $this->getValue($map, $value);
+            }
+        }
+
+        return $content;
+    }
+
+    private function getEntity(Log $log, string $adapter): ?object
+    {
+        /** RepositoryInterface $repository */
+        $repository = $this->entityManager->getRepository($adapter);
+
+        return $repository->createQueryBuilder('entity')
+            ->where('entity.log = :log')
+            ->setParameter('log', $log)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * @return array|int|float|string|null
+     */
+    private function getKey(Source $source, array $data)
+    {
+        $propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+        $value = $propertyAccessor->getValue($data, $source->getCode());
+
+        if (is_array($value)) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function getTemplate(string $template, array $data): string
+    {
+        try {
+            return $this->environment->createTemplate($template, 'template')->render($data);
+        } catch (RuntimeError $runtimeError) {
+            throw new Exception($runtimeError->getMessage());
+        }
+    }
+
+    /**
+     * @return array|int|float|string
+     */
+    private function getValue(Map $map, array $data)
+    {
+        $propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+        $value = null;
+
+        if (null !== $map->getCode()) {
+            $value = $propertyAccessor->getValue($data, $map->getCode());
+        }
+
+        if (null !== $value) {
+            $field = $map->getField();
+
+            if ($field->isMultiple()) {
+                if (false === is_array($value)) {
+                    $value = [$value];
+                }
+            } else {
+                if (is_array($value)) {
+                    $value = array_shift($value);
+                }
+            }
+        }
+
+        if (null === $value || (is_string($value) && 0 === strlen($value))) {
+            $value = null === $map->getValue() ? null : json_decode($map->getValue(), true);
+        }
+
+        $translate = $map->getTranslate();
+
+        if (null === $translate) {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            $returnValue = [];
+
+            foreach ($value as $val) {
+                if (array_key_exists($val, $translate)) {
+                    $returnValue[] = $translate[$val];
+                }
+            }
+
+            return array_unique($returnValue);
+        }
+
+        if (array_key_exists($value, $translate)) {
+            return $translate[$value];
+        }
+
+        return $value;
+    }
+
+    private function putContent(Source $source, string $key, array $data): void
     {
         $content = [];
 
@@ -168,35 +284,16 @@ class ContentService
             }
 
             $this->logRepository->patchLog(log: $log, fields: ['messages'], messages: $messages);
-        } else {
-            $entity->setIngestionLog($log);
 
-            $this->entityManager->persist($entity);
-            $this->entityManager->flush();
-
-            $this->logRepository->patchLog($log, ['processed'], processed: true);
+            return;
         }
-    }
 
-    private function getEntity(Log $log, string $adapter): ?object
-    {
-        /** RepositoryInterface $repository */
-        $repository = $this->entityManager->getRepository($adapter);
+        $entity->setIngestionLog($log);
 
-        return $repository->createQueryBuilder('entity')
-            ->where('entity.log = :log')
-            ->setParameter('log', $log)
-            ->getQuery()
-            ->getOneOrNullResult();
-    }
+        $this->entityManager->persist($entity);
+        $this->entityManager->flush();
 
-    private function getTemplate(string $template, array $data): string
-    {
-        try {
-            return $this->environment->createTemplate($template, 'template')->render($data);
-        } catch (RuntimeError $runtimeError) {
-            throw new Exception($runtimeError->getMessage());
-        }
+        $this->logRepository->patchLog($log, ['processed'], processed: true);
     }
 
     private function setContent(array $data, array $fields, mixed $value): array
@@ -243,100 +340,5 @@ class ContentService
         }
 
         return $data;
-    }
-
-    /**
-     * @return array|int|float|string|null
-     */
-    private function getKey(Source $source, array $data)
-    {
-        $propertyAccessor = PropertyAccess::createPropertyAccessor();
-
-        $value = $propertyAccessor->getValue($data, $source->getCode());
-
-        if (is_array($value)) {
-            return null;
-        }
-
-        return $value;
-    }
-
-    /**
-     * @return array|int|float|string
-     */
-    private function getContent(Map $map, array $data)
-    {
-        if (null === $map->getPath()) {
-            return $this->getValue($map, $data);
-        }
-
-        $propertyAccessor = PropertyAccess::createPropertyAccessor();
-        $values = $propertyAccessor->getValue($data, $map->getPath());
-
-        $content = [];
-
-        if (is_array($values)) {
-            foreach ($values as $value) {
-                $content[] = $this->getValue($map, $value);
-            }
-        }
-
-        return $content;
-    }
-
-    /**
-     * @return array|int|float|string
-     */
-    private function getValue(Map $map, array $data)
-    {
-        $propertyAccessor = PropertyAccess::createPropertyAccessor();
-
-        $value = null;
-
-        if (null !== $map->getCode()) {
-            $value = $propertyAccessor->getValue($data, $map->getCode());
-        }
-
-        if (null !== $value) {
-            $field = $map->getField();
-
-            if ($field->isMultiple()) {
-                if (false === is_array($value)) {
-                    $value = [$value];
-                }
-            } else {
-                if (is_array($value)) {
-                    $value = array_shift($value);
-                }
-            }
-        }
-
-        if (null === $value || (is_string($value) && 0 === strlen($value))) {
-            $value = null === $map->getValue() ? null : json_decode($map->getValue(), true);
-        }
-
-        $translate = $map->getTranslate();
-
-        if (null === $translate) {
-            return $value;
-        }
-
-        if (is_array($value)) {
-            $returnValue = [];
-
-            foreach ($value as $val) {
-                if (array_key_exists($val, $translate)) {
-                    $returnValue[] = $translate[$val];
-                }
-            }
-
-            return array_unique($returnValue);
-        }
-
-        if (array_key_exists($value, $translate)) {
-            return $translate[$value];
-        }
-
-        return $value;
     }
 }

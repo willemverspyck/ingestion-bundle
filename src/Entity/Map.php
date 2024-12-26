@@ -9,8 +9,10 @@ use Doctrine\ORM\Mapping as Doctrine;
 
 #[Doctrine\Entity]
 #[Doctrine\Table(name: 'ingestion_map')]
-class Map
+class Map implements TimestampInterface
 {
+    use TimestampTrait;
+
     #[Doctrine\Column(name: 'id', type: Types::INTEGER, options: ['unsigned' => true])]
     #[Doctrine\GeneratedValue(strategy: 'IDENTITY')]
     #[Doctrine\Id]

@@ -53,9 +53,9 @@ class SourceService
             $data = $propertyAccessor->getValue($data, $source->getPath());
         }
 
-        foreach ($data as $row) {
-            $this->contentService->executeContentAsMessage($source, $row);
-        }
+        array_walk($data, function (array $data) use ($source): void {
+            $this->contentService->executeContentAsMessage($source, $data);
+        });
     }
 
     public function executeSourceAsMessage(Source $source): void

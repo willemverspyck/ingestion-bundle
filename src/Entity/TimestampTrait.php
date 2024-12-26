@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as Doctrine;
 
-abstract class AbstractTimestamp implements TimestampInterface
+trait TimestampTrait
 {
     #[Doctrine\Column(name: 'timestamp_create', type: Types::DATETIME_IMMUTABLE)]
     protected DateTimeImmutable $timestampCreate;
