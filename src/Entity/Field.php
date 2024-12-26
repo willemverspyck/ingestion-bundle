@@ -12,7 +12,7 @@ use Doctrine\ORM\Mapping as Doctrine;
 class Field implements TimestampInterface
 {
     use TimestampTrait;
-    
+
     #[Doctrine\Column(name: 'id', type: Types::SMALLINT, options: ['unsigned' => true])]
     #[Doctrine\GeneratedValue(strategy: 'IDENTITY')]
     #[Doctrine\Id]
