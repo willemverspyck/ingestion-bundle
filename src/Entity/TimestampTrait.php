@@ -10,29 +10,29 @@ use Doctrine\ORM\Mapping as Doctrine;
 
 trait TimestampTrait
 {
-    #[Doctrine\Column(name: 'timestamp_create', type: Types::DATETIME_IMMUTABLE)]
-    protected DateTimeImmutable $timestampCreate;
+    #[Doctrine\Column(name: 'timestamp_created', type: Types::DATETIME_IMMUTABLE)]
+    protected DateTimeImmutable $timestampCreated;
 
-    #[Doctrine\Column(name: 'timestamp_update', type: Types::DATETIME_IMMUTABLE, nullable: true)]
-    protected ?DateTimeImmutable $timestampUpdate = null;
+    #[Doctrine\Column(name: 'timestamp_updated', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    protected ?DateTimeImmutable $timestampUpdated = null;
 
-    public function getTimestampCreate(): DateTimeImmutable
+    public function getTimestampCreated(): DateTimeImmutable
     {
-        return $this->timestampCreate;
+        return $this->timestampCreated;
     }
 
-    public function setTimestampCreate(DateTimeImmutable $date): void
+    public function setTimestampCreated(DateTimeImmutable $date): void
     {
-        $this->timestampCreate = $date;
+        $this->timestampCreated = $date;
     }
 
-    public function getTimestampUpdate(): ?DateTimeImmutable
+    public function getTimestampUpdated(): ?DateTimeImmutable
     {
-        return $this->timestampUpdate;
+        return $this->timestampUpdated;
     }
 
-    public function setTimestampUpdate(DateTimeImmutable $date): void
+    public function setTimestampUpdated(DateTimeImmutable $date): void
     {
-        $this->timestampUpdate = $date;
+        $this->timestampUpdated = $date;
     }
 }

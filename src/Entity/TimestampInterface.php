@@ -8,11 +8,11 @@ use DateTimeImmutable;
 
 interface TimestampInterface
 {
-    public function getTimestampCreate(): DateTimeImmutable;
+    public function getTimestampCreated(): DateTimeImmutable;
 
-    public function setTimestampCreate(DateTimeImmutable $date): void;
+    public function setTimestampCreated(DateTimeImmutable $date): void;
 
-    public function getTimestampUpdate(): ?DateTimeImmutable;
+    public function getTimestampUpdated(): ?DateTimeImmutable;
 
-    public function setTimestampUpdate(DateTimeImmutable $date): void;
+    public function setTimestampUpdated(DateTimeImmutable $date): void;
 }

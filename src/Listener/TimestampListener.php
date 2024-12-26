@@ -20,7 +20,7 @@ final class TimestampListener
         $object = $prePersistEventArgs->getObject();
 
         if ($object instanceof TimestampInterface) {
-            $object->setTimestampCreate(new DateTimeImmutable());
+            $object->setTimestampCreated(new DateTimeImmutable());
         }
     }
 
@@ -29,7 +29,7 @@ final class TimestampListener
         $object = $preUpdateEventArgs->getObject();
 
         if ($object instanceof TimestampInterface) {
-            $object->setTimestampUpdate(new DateTimeImmutable());
+            $object->setTimestampUpdated(new DateTimeImmutable());
         }
     }
 }
