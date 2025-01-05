@@ -46,7 +46,7 @@ class JobService
                 $codeRow = $this->clientService->getData($codeUrl, $source->getType());
 
                 $data = array_merge($data, $codeRow);
-                
+
                 $this->jobRepository->patchJob(job: $job, fields: ['data'], data: $data);
             }
 
