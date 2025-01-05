@@ -49,7 +49,7 @@ final class FileNormalizer implements DenormalizerInterface
 
         $name = pathinfo($path, PATHINFO_FILENAME);
 
-        return $this->fileService->handleFile($data, sprintf('%s.%s', $name, $extension));
+        return $this->fileService->getFile($data, sprintf('%s.%s', $name, $extension));
     }
 
     public function getSupportedTypes(?string $format): array

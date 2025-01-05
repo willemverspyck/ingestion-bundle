@@ -13,7 +13,7 @@ use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-class ClientService
+class DataService
 {
     public function __construct(private readonly CacheInterface $cache, private readonly HttpClientInterface $httpClient)
     {

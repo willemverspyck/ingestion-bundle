@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Spyck\IngestionBundle\Repository;
 
-use DateTimeImmutable;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
@@ -89,24 +88,14 @@ class JobRepository extends ServiceEntityRepository
         $this->getEntityManager()->flush();
     }
 
-    public function patchJobBySource(Source $source, array $fields, ?bool $active = null): void
+    public function patchJobActiveBySource(Source $source, ?bool $active = null): void
     {
-        $date = new DateTimeImmutable();
-
-        $queryBuilder = $this->getEntityManager()->createQueryBuilder()
+        $this->getEntityManager()->createQueryBuilder()
             ->update(Job::class, 'job')
-            ->set('job.timestampUpdated', ':date')
+            ->set('job.active', ':active')
             ->where('job.source = :source')
-            ->setParameter('date', $date)
-            ->setParameter('source', $source);
-
-        if (in_array('active', $fields, true)) {
-            $queryBuilder
-                ->set('active', ':active')
-                ->setParameter('active', $active);
-        }
-
-        $queryBuilder
+            ->setParameter('active', $active)
+            ->setParameter('source', $source)
             ->getQuery()
             ->execute();
     }

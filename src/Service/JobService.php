@@ -27,7 +27,7 @@ use Twig\Error\RuntimeError;
 
 class JobService
 {
-    public function __construct(private readonly ClientService $clientService, private readonly DenormalizerInterface $denormalizer, private readonly EntityManagerInterface $entityManager, private readonly EntityService $entityService, private readonly Environment $environment, private readonly EventDispatcherInterface $eventDispatcher, private readonly JobRepository $jobRepository, private readonly MessageBusInterface $messageBus, private readonly ValidatorInterface $validator)
+    public function __construct(private readonly DataService $dataService, private readonly DenormalizerInterface $denormalizer, private readonly EntityManagerInterface $entityManager, private readonly EntityService $entityService, private readonly Environment $environment, private readonly EventDispatcherInterface $eventDispatcher, private readonly JobRepository $jobRepository, private readonly MessageBusInterface $messageBus, private readonly ValidatorInterface $validator)
     {
     }
 
@@ -43,7 +43,7 @@ class JobService
 
             if (null !== $source->getCodeUrl()) {
                 $codeUrl = $this->getTemplate($source->getCodeUrl(), $data);
-                $codeRow = $this->clientService->getData($codeUrl, $source->getType());
+                $codeRow = $this->dataService->getData($codeUrl, $source->getType());
 
                 $data = array_merge($data, $codeRow);
 

@@ -6,6 +6,7 @@ namespace Spyck\IngestionBundle\Service;
 
 use Exception;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -21,7 +22,7 @@ class FileService
      * @throws Exception
      * @throws TransportExceptionInterface
      */
-    public function handleFile(?string $url, string $name): ?UploadedFile
+    public function getFile(?string $url, string $name): ?UploadedFile
     {
         if (null === $url) {
             return null;
@@ -29,7 +30,7 @@ class FileService
 
         $file = tempnam(sys_get_temp_dir(), 'user');
 
-        $response = $this->httpClient->request('GET', $url);
+        $response = $this->httpClient->request(Request::METHOD_GET, $url);
 
         try {
             $content = $response->getContent();

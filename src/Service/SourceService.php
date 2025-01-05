@@ -19,7 +19,7 @@ use Twig\Error\LoaderError;
 
 class SourceService
 {
-    public function __construct(private readonly ClientService $clientService, private readonly JobRepository $jobRepository, private readonly JobService $jobService, private readonly LoggerInterface $logger, private readonly MessageBusInterface $messageBus)
+    public function __construct(private readonly DataService $dataService, private readonly JobRepository $jobRepository, private readonly JobService $jobService, private readonly LoggerInterface $logger, private readonly MessageBusInterface $messageBus)
     {
     }
 
@@ -41,13 +41,13 @@ class SourceService
             throw new Exception(sprintf('Class "%s" is not instance of "%s"', $adapter, EntityInterface::class));
         }
 
-        $data = $this->clientService->getData($source->getUrl(), $source->getType());
+        $data = $this->dataService->getData($source->getUrl(), $source->getType());
 
         if (null === $data) {
             throw new Exception(sprintf('Data not found for "%s"', $source->getName()));
         }
 
-        $this->jobRepository->patchJobBySource(source: $source, fields: ['active'], active: null);
+        $this->jobRepository->patchJobActiveBySource(source: $source, active: null);
 
         $propertyAccessor = PropertyAccess::createPropertyAccessor();
 
