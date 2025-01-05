@@ -58,6 +58,10 @@ class SourceService
         array_walk($data, function (array $data) use ($source): void {
             $job = $this->getJob($source, $data);
 
+            if (null === $job) {
+                return;
+            }
+
             $this->jobService->executeJobAsMessage($job);
         });
 
@@ -94,14 +98,14 @@ class SourceService
         return $value;
     }
 
-    private function getJob(Source $source, array $data): Job
+    private function getJob(Source $source, array $data): ?Job
     {
         $code = $this->getCode($source, $data);
 
         if (null === $code) {
             $this->logger->error(sprintf('Code not found (%s)', $source->getName()), $data);
 
-            return;
+            return null;
         }
 
         $job = $this->jobRepository->getJobBySourceAndCode($source, $code);
