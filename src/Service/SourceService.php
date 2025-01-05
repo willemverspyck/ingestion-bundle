@@ -82,14 +82,15 @@ class SourceService
         $this->messageBus->dispatch($sourceMessage);
     }
 
-    /**
-     * @return array|int|float|string|null
-     */
-    private function getCode(Source $source, array $data)
+    private function getCode(Source $source, array $data): ?string
     {
         $propertyAccessor = PropertyAccess::createPropertyAccessor();
 
         $value = $propertyAccessor->getValue($data, $source->getCode());
+
+        if (null === $value) {
+            return null;
+        }
 
         if (is_array($value)) {
             return null;
