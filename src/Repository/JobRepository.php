@@ -102,7 +102,7 @@ class JobRepository extends ServiceEntityRepository
 
         if (in_array('active', $fields, true)) {
             $queryBuilder
-                ->set('active = :active')
+                ->set('active', ':active')
                 ->setParameter('active', $active);
         }
 
