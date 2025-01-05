@@ -6,12 +6,12 @@ namespace Spyck\IngestionBundle\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as Doctrine;
-use Spyck\IngestionBundle\Repository\LogRepository;
+use Spyck\IngestionBundle\Repository\JobRepository;
 
-#[Doctrine\Entity(repositoryClass: LogRepository::class)]
-#[Doctrine\Table(name: 'ingestion_log')]
+#[Doctrine\Entity(repositoryClass: JobRepository::class)]
+#[Doctrine\Table(name: 'ingestion_job')]
 #[Doctrine\UniqueConstraint(columns: ['source_id', 'code'])]
-class Log implements TimestampInterface
+class Job implements TimestampInterface
 {
     use TimestampTrait;
 
@@ -35,6 +35,9 @@ class Log implements TimestampInterface
 
     #[Doctrine\Column(name: 'processed', type: Types::BOOLEAN)]
     private bool $processed;
+
+    #[Doctrine\Column(name: 'active', type: Types::BOOLEAN, nullable: true)]
+    private ?bool $active = null;
 
     public function getId(): ?int
     {
@@ -97,6 +100,18 @@ class Log implements TimestampInterface
     public function setProcessed(bool $processed): self
     {
         $this->processed = $processed;
+
+        return $this;
+    }
+
+    public function isActive(): ?bool
+    {
+        return $this->active;
+    }
+
+    public function setActive(?bool $active): self
+    {
+        $this->active = $active;
 
         return $this;
     }

@@ -7,12 +7,14 @@ namespace Spyck\IngestionBundle\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Exception;
-use Spyck\IngestionBundle\Entity\Log;
+use Spyck\IngestionBundle\Entity\Job;
 use Spyck\IngestionBundle\Entity\Map;
-use Spyck\IngestionBundle\Entity\Source;
-use Spyck\IngestionBundle\Message\ContentMessage;
+use Spyck\IngestionBundle\Event\PostJobEvent;
+use Spyck\IngestionBundle\Event\PreJobEvent;
+use Spyck\IngestionBundle\Message\JobMessage;
 use Spyck\IngestionBundle\Normalizer\AbstractNormalizer as IngestionAbstractNormalizer;
-use Spyck\IngestionBundle\Repository\LogRepository;
+use Spyck\IngestionBundle\Repository\JobRepository;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
@@ -23,37 +25,45 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Twig\Environment;
 use Twig\Error\RuntimeError;
 
-class ContentService
+class JobService
 {
-    public function __construct(private readonly ClientService $clientService, private readonly DenormalizerInterface $denormalizer, private readonly EntityManagerInterface $entityManager, private readonly Environment $environment, private readonly LogRepository $logRepository, private readonly MessageBusInterface $messageBus, private readonly ValidatorInterface $validator)
+    public function __construct(private readonly ClientService $clientService, private readonly DenormalizerInterface $denormalizer, private readonly EntityManagerInterface $entityManager, private readonly EntityService $entityService, private readonly Environment $environment, private readonly EventDispatcherInterface $eventDispatcher, private readonly JobRepository $jobRepository, private readonly MessageBusInterface $messageBus, private readonly ValidatorInterface $validator)
     {
     }
 
-    public function executeContent(Source $source, array $data): void
+    public function executeJob(Job $job): void
     {
-        $key = $this->getKey($source, $data);
+        $preJobEvent = new PreJobEvent($job);
 
-        if (null === $key) {
-            throw new Exception(sprintf('"Primary key" not found (%s)', $source->getName()));
+        $this->eventDispatcher->dispatch($preJobEvent);
+
+        if ($job->isActive()) {
+            $source = $job->getSource();
+            $data = $job->getData();
+
+            if (null !== $source->getCodeUrl()) {
+                $codeUrl = $this->getTemplate($source->getCodeUrl(), $data);
+                $codeRow = $this->clientService->getData($codeUrl, $source->getType());
+
+                $data = array_merge($data, $codeRow);
+                
+                $this->jobRepository->patchJob(job: $job, fields: ['data'], data: $data);
+            }
+
+            $this->putContent($job, $data);
         }
 
-        if (null !== $source->getCodeUrl()) {
-            $codeUrl = $this->getTemplate($source->getCodeUrl(), $data);
-            $codeRow = $this->clientService->getData($codeUrl, $source->getType());
+        $postJobEvent = new PostJobEvent($job);
 
-            $data = array_merge($data, $codeRow);
-        }
-
-        $this->putContent($source, $key, $data);
+        $this->eventDispatcher->dispatch($postJobEvent);
     }
 
-    public function executeContentAsMessage(Source $source, array $data): void
+    public function executeJobAsMessage(Job $job): void
     {
-        $contentMessage = new ContentMessage();
-        $contentMessage->setId($source->getId());
-        $contentMessage->setData($data);
+        $jobMessage = new JobMessage();
+        $jobMessage->setId($job->getId());
 
-        $this->messageBus->dispatch($contentMessage);
+        $this->messageBus->dispatch($jobMessage);
     }
 
     /**
@@ -66,6 +76,7 @@ class ContentService
         }
 
         $propertyAccessor = PropertyAccess::createPropertyAccessor();
+
         $values = $propertyAccessor->getValue($data, $map->getPath());
 
         $content = [];
@@ -77,34 +88,6 @@ class ContentService
         }
 
         return $content;
-    }
-
-    private function getEntity(Log $log, string $adapter): ?object
-    {
-        /** RepositoryInterface $repository */
-        $repository = $this->entityManager->getRepository($adapter);
-
-        return $repository->createQueryBuilder('entity')
-            ->where('entity.log = :log')
-            ->setParameter('log', $log)
-            ->getQuery()
-            ->getOneOrNullResult();
-    }
-
-    /**
-     * @return array|int|float|string|null
-     */
-    private function getKey(Source $source, array $data)
-    {
-        $propertyAccessor = PropertyAccess::createPropertyAccessor();
-
-        $value = $propertyAccessor->getValue($data, $source->getCode());
-
-        if (is_array($value)) {
-            return null;
-        }
-
-        return $value;
     }
 
     private function getTemplate(string $template, array $data): string
@@ -172,18 +155,18 @@ class ContentService
         return $value;
     }
 
-    private function putContent(Source $source, string $key, array $data): void
+    private function putContent(Job $job, array $data): void
     {
         $content = [];
+
+        $source = $job->getSource();
 
         $maps = $source->getMaps();
 
         foreach ($maps as $map) {
             $value = $this->getContent($map, $data);
 
-            $code = $map->getField()->getCode();
-
-            $content = $this->setContent($content, explode('.', $code), $value);
+            $content = $this->setContent($content, explode('.', $map->getField()->getCode()), $value);
         }
 
         foreach ($maps as $map) {
@@ -196,17 +179,7 @@ class ContentService
 
         $adapter = $source->getModule()->getAdapter();
 
-        $log = $this->logRepository->getLogBySourceAndCode($source, $key);
-
-        if (null === $log) {
-            $log = $this->logRepository->putLog(source: $source, code: $key, data: $data);
-
-            $entity = null;
-        } else {
-            $this->logRepository->patchLog(log: $log, fields: ['data', 'messages'], data: $data);
-
-            $entity = $this->getEntity($log, $adapter);
-        }
+        $entity = $this->entityService->getEntityByJob($job);
 
         if (null === $entity) {
             $entity = $adapter::getIngestionEntity();
@@ -265,7 +238,7 @@ class ContentService
                 $exception->getMessage(),
             ];
 
-            $this->logRepository->patchLog(log: $log, fields: ['messages'], messages: $messages);
+            $this->jobRepository->patchJob(job: $job, fields: ['messages', 'processed'], messages: $messages, processed: false);
 
             return;
         }
@@ -283,17 +256,17 @@ class ContentService
                 }
             }
 
-            $this->logRepository->patchLog(log: $log, fields: ['messages'], messages: $messages);
+            $this->jobRepository->patchJob(job: $job, fields: ['messages', 'processed'], messages: $messages, processed: false);
 
             return;
         }
 
-        $entity->setIngestionLog($log);
+        $entity->setIngestionJob($job);
 
         $this->entityManager->persist($entity);
         $this->entityManager->flush();
 
-        $this->logRepository->patchLog($log, ['processed'], processed: true);
+        $this->jobRepository->patchJob(job: $job, fields: ['processed'], processed: true);
     }
 
     private function setContent(array $data, array $fields, mixed $value): array

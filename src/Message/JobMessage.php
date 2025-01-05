@@ -2,7 +2,7 @@
 
 namespace Spyck\IngestionBundle\Message;
 
-final class SourceMessage implements SourceMessageInterface
+final class JobMessage implements JobMessageInterface
 {
     private int $id;
 

@@ -2,7 +2,7 @@
 
 namespace Spyck\IngestionBundle\Message;
 
-interface SourceMessageInterface
+interface JobMessageInterface
 {
     public function getId(): int;
 

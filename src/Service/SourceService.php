@@ -6,10 +6,12 @@ namespace Spyck\IngestionBundle\Service;
 
 use Exception;
 use Psr\Cache\InvalidArgumentException;
+use Psr\Log\LoggerInterface;
 use Spyck\IngestionBundle\Entity\EntityInterface;
+use Spyck\IngestionBundle\Entity\Job;
 use Spyck\IngestionBundle\Entity\Source;
 use Spyck\IngestionBundle\Message\SourceMessage;
-use Spyck\IngestionBundle\Repository\LogRepository;
+use Spyck\IngestionBundle\Repository\JobRepository;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
@@ -17,7 +19,7 @@ use Twig\Error\LoaderError;
 
 class SourceService
 {
-    public function __construct(private readonly ClientService $clientService, private readonly ContentService $contentService, private readonly LogRepository $logRepository, private readonly MessageBusInterface $messageBus)
+    public function __construct(private readonly ClientService $clientService, private readonly JobRepository $jobRepository, private readonly JobService $jobService, private readonly LoggerInterface $logger, private readonly MessageBusInterface $messageBus)
     {
     }
 
@@ -45,7 +47,7 @@ class SourceService
             throw new Exception(sprintf('Data not found for "%s"', $source->getName()));
         }
 
-        $this->logRepository->patchLogProcessedBySource($source, false);
+        $this->jobRepository->patchJobBySource(source: $source, fields: ['active'], active: null);
 
         $propertyAccessor = PropertyAccess::createPropertyAccessor();
 
@@ -54,8 +56,18 @@ class SourceService
         }
 
         array_walk($data, function (array $data) use ($source): void {
-            $this->contentService->executeContentAsMessage($source, $data);
+            $job = $this->getJob($source, $data);
+
+            $this->jobService->executeJobAsMessage($job);
         });
+
+        $jobs = $this->jobRepository->getJobsBySourceAndActiveIsNull($source);
+
+        foreach ($jobs as $job) {
+            $this->jobRepository->patchJob(job: $job, fields: ['active'], active: false);
+
+            $this->jobService->executeJobAsMessage($job);
+        }
     }
 
     public function executeSourceAsMessage(Source $source): void
@@ -64,5 +76,42 @@ class SourceService
         $sourceMessage->setId($source->getId());
 
         $this->messageBus->dispatch($sourceMessage);
+    }
+
+    /**
+     * @return array|int|float|string|null
+     */
+    private function getCode(Source $source, array $data)
+    {
+        $propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+        $value = $propertyAccessor->getValue($data, $source->getCode());
+
+        if (is_array($value)) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function getJob(Source $source, array $data): Job
+    {
+        $code = $this->getCode($source, $data);
+
+        if (null === $code) {
+            $this->logger->error(sprintf('Code not found (%s)', $source->getName()), $data);
+
+            return;
+        }
+
+        $job = $this->jobRepository->getJobBySourceAndCode($source, $code);
+
+        if (null === $job) {
+            return $this->jobRepository->putJob(source: $source, code: $code, data: $data);
+        }
+
+        $this->jobRepository->patchJob(job: $job, fields: ['data', 'messages', 'processed', 'active'], data: $data, processed: false, active: true);
+
+        return $job;
     }
 }
