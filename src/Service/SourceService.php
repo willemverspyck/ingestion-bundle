@@ -96,7 +96,7 @@ class SourceService
             return null;
         }
 
-        return $value;
+        return sprintf('%s', $value);
     }
 
     private function getJob(Source $source, array $data): ?Job
